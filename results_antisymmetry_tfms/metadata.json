@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-05-05T14:47:35.384010+00:00",
+  "data_path": "/data/alessandrocagiano-data/on_inductive_abilities_tfm/experiment_2/TFMsInductiveAbilities/minimal_antisymmetry_dataset/antisymmetry_coauthor_atoms.csv",
+  "device": "cuda",
+  "models": [
+    "tabpfn",
+    "tabicl",
+    "distmult"
+  ],
+  "test_rows": 96,
+  "threshold_mode": "fixed",
+  "train_rows": 360,
+  "validation_rows": 24
+}

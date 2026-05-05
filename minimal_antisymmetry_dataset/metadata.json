@@ -1,0 +1,45 @@
+{
+  "created_utc": "2026-05-05T14:46:32.159345+00:00",
+  "demo_fraction": 0.5,
+  "entity_ids_randomized": true,
+  "generation_rule": "Each author has a hidden seniority rank. label=1 means entity_1 is more senior than entity_2. Hidden seniority is never written to the model-facing atom table.",
+  "num_atom_rows": 480,
+  "num_entities": 60,
+  "num_unordered_pairs": 240,
+  "num_unordered_pairs_available": 1770,
+  "pair_role_counts": {
+    "demo": 120,
+    "query": 120
+  },
+  "relation_name": "senior_coauthor_of",
+  "seed": 20260429,
+  "split_mode": "antisymmetry_demonstration",
+  "split_rule": "reverse_holdout: one direction is train and the opposite-label reverse direction is validation/test. antisymmetry_demonstration: demo pairs have both directions in train; query pairs use one direction in train and the reverse direction in validation/test.",
+  "validation": {
+    "antisymmetry_violation_count": 0,
+    "antisymmetry_violation_examples": [],
+    "forbidden_feature_columns_present": [],
+    "has_required_columns": true,
+    "is_valid_antisymmetry_holdout": true,
+    "label_counts": {
+      "0": 240,
+      "1": 240
+    },
+    "missing_reverse_count": 0,
+    "missing_reverse_examples": [],
+    "split_counts": {
+      "test": 96,
+      "train": 360,
+      "validation": 24
+    },
+    "split_label_counts": {
+      "test:0": 43,
+      "test:1": 53,
+      "train:0": 184,
+      "train:1": 176,
+      "validation:0": 13,
+      "validation:1": 11
+    }
+  },
+  "validation_fraction": 0.2
+}
