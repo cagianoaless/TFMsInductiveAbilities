@@ -12,12 +12,12 @@ from pathlib import Path
 from typing import Any
 
 
-MODELS = ("tabpfn", "tabicl", "gbdt")
+MODELS = ("tabpfn", "tabicl", "distmult")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run TabPFN, TabICL, or a GBDT baseline on a minimal binary-relation table."
+        description="Run TabPFN, TabICL, or a DistMult baseline on a minimal binary-relation table."
     )
     parser.add_argument(
         "--data-path",
@@ -52,9 +52,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tabicl-use-amp", type=str, default="auto")
     parser.add_argument("--tabicl-use-fa3", type=str, default="auto")
     parser.add_argument("--tabicl-offload-mode", type=str, default="auto")
-    parser.add_argument("--gbdt-n-estimators", type=int, default=200)
-    parser.add_argument("--gbdt-learning-rate", type=float, default=0.05)
-    parser.add_argument("--gbdt-max-depth", type=int, default=3)
+    parser.add_argument("--distmult-embedding-dim", type=int, default=32)
+    parser.add_argument("--distmult-epochs", type=int, default=1000)
+    parser.add_argument("--distmult-lr", type=float, default=0.05)
+    parser.add_argument("--distmult-weight-decay", type=float, default=1e-4)
+    parser.add_argument("--distmult-batch-size", type=int, default=512)
+    parser.add_argument("--distmult-patience", type=int, default=100)
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -113,12 +116,10 @@ def import_runtime_dependencies() -> None:
     global precision_score
     global recall_score
     global roc_auc_score
-    global GradientBoostingClassifier
 
     try:
         import numpy as np_module
         import pandas as pd_module
-        from sklearn.ensemble import GradientBoostingClassifier as GradientBoostingClassifier_cls
         from sklearn.metrics import accuracy_score as accuracy_score_fn
         from sklearn.metrics import average_precision_score as average_precision_score_fn
         from sklearn.metrics import f1_score as f1_score_fn
@@ -133,7 +134,6 @@ def import_runtime_dependencies() -> None:
 
     np = np_module
     pd = pd_module
-    GradientBoostingClassifier = GradientBoostingClassifier_cls
     accuracy_score = accuracy_score_fn
     average_precision_score = average_precision_score_fn
     f1_score = f1_score_fn
@@ -233,21 +233,6 @@ def build_tabicl_classifier(args: argparse.Namespace):
     )
 
 
-def build_gbdt_classifier(args: argparse.Namespace):
-    if args.gbdt_n_estimators <= 0:
-        raise ValueError("--gbdt-n-estimators must be positive.")
-    if args.gbdt_learning_rate <= 0.0:
-        raise ValueError("--gbdt-learning-rate must be positive.")
-    if args.gbdt_max_depth <= 0:
-        raise ValueError("--gbdt-max-depth must be positive.")
-    return GradientBoostingClassifier(
-        n_estimators=args.gbdt_n_estimators,
-        learning_rate=args.gbdt_learning_rate,
-        max_depth=args.gbdt_max_depth,
-        random_state=args.seed,
-    )
-
-
 def extract_positive_proba(proba: np.ndarray, classes: np.ndarray) -> np.ndarray:
     classes = np.asarray(classes)
     proba = np.asarray(proba)
@@ -295,6 +280,137 @@ def evaluate_predictions(y_true: np.ndarray, y_pred: np.ndarray, positive_proba:
     return metrics
 
 
+def fit_predict_distmult(
+    *,
+    X_train: Any,
+    y_train: np.ndarray,
+    X_valid: Any,
+    y_valid: np.ndarray,
+    X_test: Any,
+    args: argparse.Namespace,
+) -> dict[str, object]:
+    try:
+        import torch
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "Missing Python dependency: torch. DistMult requires PyTorch in the active environment."
+        ) from exc
+
+    if args.distmult_embedding_dim <= 0:
+        raise ValueError("--distmult-embedding-dim must be positive.")
+    if args.distmult_epochs <= 0:
+        raise ValueError("--distmult-epochs must be positive.")
+    if args.distmult_lr <= 0.0:
+        raise ValueError("--distmult-lr must be positive.")
+    if args.distmult_weight_decay < 0.0:
+        raise ValueError("--distmult-weight-decay must be non-negative.")
+    if args.distmult_batch_size <= 0:
+        raise ValueError("--distmult-batch-size must be positive.")
+    if args.distmult_patience < 0:
+        raise ValueError("--distmult-patience must be non-negative.")
+
+    if args.device.startswith("cuda") and not torch.cuda.is_available():
+        raise RuntimeError(f"Requested device {args.device!r}, but CUDA is not available to PyTorch.")
+    device = torch.device(args.device)
+
+    torch.manual_seed(args.seed)
+    if device.type == "cuda":
+        torch.cuda.manual_seed_all(args.seed)
+
+    X_train_np = encode_for_tabpfn(X_train)
+    X_valid_np = encode_for_tabpfn(X_valid) if len(X_valid) else np.empty((0, 2), dtype=np.int64)
+    X_test_np = encode_for_tabpfn(X_test)
+    n_entities = int(max(X_train_np.max(), X_test_np.max(), X_valid_np.max() if len(X_valid_np) else 0) + 1)
+
+    class DistMultBinaryClassifier(torch.nn.Module):
+        def __init__(self, num_entities: int, embedding_dim: int) -> None:
+            super().__init__()
+            self.entity_embeddings = torch.nn.Embedding(num_entities, embedding_dim)
+            self.relation = torch.nn.Parameter(torch.empty(embedding_dim))
+            self.bias = torch.nn.Parameter(torch.zeros(()))
+            torch.nn.init.xavier_uniform_(self.entity_embeddings.weight)
+            torch.nn.init.normal_(self.relation, mean=0.0, std=1.0 / embedding_dim**0.5)
+
+        def forward(self, pairs: torch.Tensor) -> torch.Tensor:
+            left = self.entity_embeddings(pairs[:, 0])
+            right = self.entity_embeddings(pairs[:, 1])
+            return (left * self.relation * right).sum(dim=1) + self.bias
+
+    model = DistMultBinaryClassifier(n_entities, args.distmult_embedding_dim).to(device)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=args.distmult_lr,
+        weight_decay=args.distmult_weight_decay,
+    )
+    loss_fn = torch.nn.BCEWithLogitsLoss()
+
+    train_pairs = torch.as_tensor(X_train_np, dtype=torch.long, device=device)
+    train_labels = torch.as_tensor(y_train.astype(np.float32), dtype=torch.float32, device=device)
+    valid_pairs = torch.as_tensor(X_valid_np, dtype=torch.long, device=device)
+    valid_labels = torch.as_tensor(y_valid.astype(np.float32), dtype=torch.float32, device=device)
+    test_pairs = torch.as_tensor(X_test_np, dtype=torch.long, device=device)
+
+    fit_start = time.perf_counter()
+    best_loss = float("inf")
+    best_state: dict[str, Any] | None = None
+    epochs_without_improvement = 0
+    batch_size = min(args.distmult_batch_size, len(train_pairs))
+
+    for _epoch in range(args.distmult_epochs):
+        model.train()
+        permutation = torch.randperm(len(train_pairs), device=device)
+        for start in range(0, len(train_pairs), batch_size):
+            batch_idx = permutation[start : start + batch_size]
+            optimizer.zero_grad(set_to_none=True)
+            logits = model(train_pairs[batch_idx])
+            loss = loss_fn(logits, train_labels[batch_idx])
+            loss.backward()
+            optimizer.step()
+
+        model.eval()
+        with torch.no_grad():
+            if len(valid_pairs):
+                monitor_loss = float(loss_fn(model(valid_pairs), valid_labels).detach().cpu())
+            else:
+                monitor_loss = float(loss_fn(model(train_pairs), train_labels).detach().cpu())
+
+        if monitor_loss < best_loss - 1e-7:
+            best_loss = monitor_loss
+            best_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+            if args.distmult_patience and epochs_without_improvement >= args.distmult_patience:
+                break
+
+    if best_state is not None:
+        model.load_state_dict({key: value.to(device) for key, value in best_state.items()})
+    fit_time_s = time.perf_counter() - fit_start
+
+    pred_start = time.perf_counter()
+    model.eval()
+    with torch.no_grad():
+        valid_logits = model(valid_pairs) if len(valid_pairs) else torch.empty(0, device=device)
+        test_logits = model(test_pairs)
+        valid_proba = torch.sigmoid(valid_logits).detach().cpu().numpy().astype(np.float64)
+        test_proba = torch.sigmoid(test_logits).detach().cpu().numpy().astype(np.float64)
+    predict_time_s = time.perf_counter() - pred_start
+
+    threshold = (
+        best_f1_threshold(y_valid, valid_proba, args.decision_threshold)
+        if args.threshold_mode == "tune_validation_f1"
+        else float(args.decision_threshold)
+    )
+    y_pred = (test_proba >= threshold).astype(np.int64)
+    return {
+        "positive_proba": test_proba,
+        "y_pred": y_pred,
+        "threshold": float(threshold),
+        "fit_time_s": float(fit_time_s),
+        "predict_time_s": float(predict_time_s),
+    }
+
+
 def fit_predict_one_model(
     *,
     model_name: str,
@@ -305,6 +421,16 @@ def fit_predict_one_model(
     X_test: Any,
     args: argparse.Namespace,
 ) -> dict[str, object]:
+    if model_name == "distmult":
+        return fit_predict_distmult(
+            X_train=X_train,
+            y_train=y_train,
+            X_valid=X_valid,
+            y_valid=y_valid,
+            X_test=X_test,
+            args=args,
+        )
+
     if model_name == "tabpfn":
         model = build_tabpfn_classifier(args)
         X_train_in = encode_for_tabpfn(X_train)
@@ -315,11 +441,6 @@ def fit_predict_one_model(
         X_train_in = X_train
         X_valid_in = X_valid
         X_test_in = X_test
-    elif model_name == "gbdt":
-        model = build_gbdt_classifier(args)
-        X_train_in = encode_for_tabpfn(X_train)
-        X_valid_in = encode_for_tabpfn(X_valid) if len(X_valid) else np.empty((0, 2), dtype=np.int64)
-        X_test_in = encode_for_tabpfn(X_test)
     else:
         raise ValueError(f"Unsupported model: {model_name}")
 

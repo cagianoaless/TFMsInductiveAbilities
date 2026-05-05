@@ -58,15 +58,15 @@ TABPFN_DISABLE_TELEMETRY=1 python3 run_minimal_symmetry_tfm_experiment.py \
 
 Use only `entity_1` and `entity_2` as features. `label` is the target and `split` is metadata.
 
-## Run A GBDT Baseline
+## Run A DistMult Baseline
 
-The evaluator also supports a scikit-learn gradient boosting decision tree baseline:
+The evaluator also supports a DistMult embedding baseline. DistMult has symmetry built into its score, so it is a useful positive-control model for the symmetry dataset:
 
 ```bash
 python3 run_minimal_symmetry_tfm_experiment.py \
   --data-path minimal_symmetry_dataset/symmetry_friendship_atoms.csv \
-  --output-dir minimal_symmetry_gbdt_results \
-  --models gbdt
+  --output-dir minimal_symmetry_distmult_results \
+  --models distmult
 ```
 
 For antisymmetry:
@@ -74,11 +74,20 @@ For antisymmetry:
 ```bash
 python3 run_minimal_symmetry_tfm_experiment.py \
   --data-path minimal_antisymmetry_dataset/antisymmetry_coauthor_atoms.csv \
-  --output-dir minimal_antisymmetry_gbdt_results \
-  --models gbdt
+  --output-dir minimal_antisymmetry_distmult_results \
+  --models distmult
 ```
 
-The GBDT baseline receives ordinal-encoded entity IDs. With randomized entity IDs this is a deliberately simple non-foundation baseline, not a symbolic relational model.
+DistMult-specific controls:
+
+```text
+--distmult-embedding-dim 32
+--distmult-epochs 1000
+--distmult-lr 0.05
+--distmult-weight-decay 1e-4
+--distmult-batch-size 512
+--distmult-patience 100
+```
 
 ## Antisymmetry Dataset
 
