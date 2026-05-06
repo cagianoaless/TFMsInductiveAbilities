@@ -1,7 +1,7 @@
 {
   "batch_size": 512,
-  "created_utc": "2026-05-06T14:28:15.686403+00:00",
-  "data_path": "/data/alessandrocagiano-data/on_inductive_abilities_tfm/experiment_2/TFMsInductiveAbilities/minimal_antisymmetry_dataset/antisymmetry_coauthor_atoms.csv",
+  "created_utc": "2026-05-06T15:03:47.450030+00:00",
+  "data_path": "/data/alessandrocagiano-data/on_inductive_abilities_tfm/experiment_2/TFMsInductiveAbilities/sparse_supervised_by_dataset/supervised_by_atoms.csv",
   "decision_threshold": 0.5,
   "device": "cuda",
   "distance": "l2",
@@ -18,9 +18,9 @@
   "patience": 100,
   "relation_dim": 64,
   "seed": 20260429,
-  "test_rows": 96,
+  "test_rows": 218,
   "threshold_mode": "fixed",
-  "train_rows": 360,
-  "validation_rows": 24,
+  "train_rows": 272,
+  "validation_rows": 54,
   "weight_decay": 0.0001
 }

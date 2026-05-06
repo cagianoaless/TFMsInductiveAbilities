@@ -1,0 +1,13 @@
+{
+  "created_utc": "2026-05-06T15:06:50.057598+00:00",
+  "data_path": "/data/alessandrocagiano-data/on_inductive_abilities_tfm/experiment_2/TFMsInductiveAbilities/sparse_supervised_by_dataset/supervised_by_atoms.csv",
+  "device": "cuda",
+  "models": [
+    "tabpfn",
+    "tabicl"
+  ],
+  "test_rows": 218,
+  "threshold_mode": "fixed",
+  "train_rows": 272,
+  "validation_rows": 54
+}
