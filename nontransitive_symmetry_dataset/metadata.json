@@ -1,0 +1,97 @@
+{
+  "created_utc": "2026-05-06T14:18:05.746260+00:00",
+  "demo_fraction": 0.5,
+  "entity_ids_randomized": true,
+  "generation_rule": "label is 1 for sampled undirected graph edges and 0 for sampled non-edges. Every selected unordered pair is exported in both directions with the same label. No hidden group structure is used, so positive edges do not force transitive closure.",
+  "negative_ratio": 1.0,
+  "num_atom_rows": 640,
+  "num_entities": 80,
+  "num_positive_unordered_edges": 160,
+  "num_unordered_pairs": 320,
+  "pair_role_counts": {
+    "query": 320
+  },
+  "positive_degree": 4,
+  "seed": 20260429,
+  "split_mode": "reverse_holdout",
+  "split_rule": "reverse_holdout: one direction is train and the reverse direction is validation/test. symmetry_demonstration: demo pairs have both directions in train; query pairs use one direction in train and the reverse direction in validation/test.",
+  "validation": {
+    "has_required_columns": true,
+    "is_valid_symmetric_nontransitive": true,
+    "label_counts": {
+      "0": 320,
+      "1": 320
+    },
+    "missing_reverse_count": 0,
+    "missing_reverse_examples": [],
+    "reverse_label_mismatch_count": 0,
+    "reverse_label_mismatch_examples": [],
+    "split_counts": {
+      "test": 256,
+      "train": 320,
+      "validation": 64
+    },
+    "split_label_counts": {
+      "test:0": 130,
+      "test:1": 126,
+      "train:0": 160,
+      "train:1": 160,
+      "validation:0": 30,
+      "validation:1": 34
+    },
+    "transitivity_violation_count": 592,
+    "transitivity_violation_examples": [
+      {
+        "entity_a": "entity_0008",
+        "entity_b": "entity_0069",
+        "entity_c": "entity_0010"
+      },
+      {
+        "entity_a": "entity_0008",
+        "entity_b": "entity_0069",
+        "entity_c": "entity_0039"
+      },
+      {
+        "entity_a": "entity_0010",
+        "entity_b": "entity_0069",
+        "entity_c": "entity_0039"
+      },
+      {
+        "entity_a": "entity_0024",
+        "entity_b": "entity_0072",
+        "entity_c": "entity_0037"
+      },
+      {
+        "entity_a": "entity_0024",
+        "entity_b": "entity_0072",
+        "entity_c": "entity_0043"
+      },
+      {
+        "entity_a": "entity_0024",
+        "entity_b": "entity_0072",
+        "entity_c": "entity_0046"
+      },
+      {
+        "entity_a": "entity_0037",
+        "entity_b": "entity_0072",
+        "entity_c": "entity_0043"
+      },
+      {
+        "entity_a": "entity_0037",
+        "entity_b": "entity_0072",
+        "entity_c": "entity_0046"
+      },
+      {
+        "entity_a": "entity_0043",
+        "entity_b": "entity_0072",
+        "entity_c": "entity_0046"
+      },
+      {
+        "entity_a": "entity_0019",
+        "entity_b": "entity_0040",
+        "entity_c": "entity_0034"
+      }
+    ]
+  },
+  "validation_fraction": 0.2
+}
