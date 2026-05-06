@@ -111,3 +111,36 @@ python3 run_minimal_symmetry_tfm_experiment.py \
   --data-path minimal_antisymmetry_dataset/antisymmetry_coauthor_atoms.csv \
   --dry-run
 ```
+
+## Sparse `supervised_by` Dataset
+
+The total-order antisymmetry dataset is useful, but it is easier than a realistic `supervised_by` relation because every pair has one positive direction. The sparse generator creates a directed graph instead: only student-to-supervisor edges are positive, reverse edges are negative, and unrelated pairs are negative in both directions.
+
+```bash
+python3 generate_sparse_supervised_by_dataset.py \
+  --output-dir sparse_supervised_by_dataset \
+  --num-students 48 \
+  --num-supervisors 12 \
+  --min-supervisors-per-student 1 \
+  --max-supervisors-per-student 2 \
+  --negative-ratio 3.0 \
+  --split-mode reverse_holdout
+```
+
+Evaluate it with the same runner:
+
+```bash
+python3 run_minimal_symmetry_tfm_experiment.py \
+  --data-path sparse_supervised_by_dataset/supervised_by_atoms.csv \
+  --dry-run
+```
+
+KGE baselines use the same model-facing file:
+
+```bash
+python3 run_kge_relation_baselines.py \
+  --data-path sparse_supervised_by_dataset/supervised_by_atoms.csv \
+  --output-dir results_sparse_supervised_by_kge \
+  --models complex,transr,transe,distmult \
+  --device cuda
+```
