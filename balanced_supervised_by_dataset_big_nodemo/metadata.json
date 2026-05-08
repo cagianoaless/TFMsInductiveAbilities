@@ -1,0 +1,58 @@
+{
+  "balanced_labels": true,
+  "created_utc": "2026-05-08T13:52:38.045037+00:00",
+  "demo_fraction": 0.5,
+  "effective_negative_ratio": 0.0,
+  "entity_ids_randomized": true,
+  "generation_rule": "Students are assigned one or more hidden supervisors. label=1 means entity_1 is supervised by entity_2. Reverse supervision rows are 0. Unrelated pairs are 0 in both directions when sampled. In balanced mode, unrelated pairs are omitted so each supervision pair contributes one positive and one negative reverse row. Roles are written only to audit files and never to the model-facing atom table.",
+  "max_supervisors_per_student": 2,
+  "min_supervisors_per_student": 1,
+  "negative_ratio": 3.0,
+  "num_atom_rows": 1188,
+  "num_entities": 500,
+  "num_positive_supervision_edges": 594,
+  "num_sampled_unrelated_pairs": 0,
+  "num_students": 400,
+  "num_supervisors": 100,
+  "num_unordered_pairs": 594,
+  "pair_role_counts": {
+    "query": 594
+  },
+  "pair_type_counts": {
+    "supervision_edge": 594
+  },
+  "relation_name": "supervised_by",
+  "seed": 20260429,
+  "split_mode": "reverse_holdout",
+  "split_rule": "reverse_holdout: one direction is train and the reverse direction is validation/test. supervision_demonstration: demo pairs have both directions in train; query pairs use one direction in train and the reverse direction in validation/test.",
+  "validation": {
+    "both_negative_unordered_pair_count": 0,
+    "both_positive_violation_count": 0,
+    "both_positive_violation_examples": [],
+    "forbidden_feature_columns_present": [],
+    "has_required_columns": true,
+    "is_balanced_label_dataset": true,
+    "is_valid_balanced_supervised_by": true,
+    "is_valid_sparse_supervised_by": false,
+    "is_valid_supervised_by": true,
+    "label_counts": {
+      "0": 594,
+      "1": 594
+    },
+    "missing_reverse_count": 0,
+    "missing_reverse_examples": [],
+    "positive_rate": 0.5,
+    "positive_reverse_negative_count": 594,
+    "split_counts": {
+      "test": 594,
+      "train": 594
+    },
+    "split_label_counts": {
+      "test:0": 295,
+      "test:1": 299,
+      "train:0": 299,
+      "train:1": 295
+    }
+  },
+  "validation_fraction": 0.0
+}
