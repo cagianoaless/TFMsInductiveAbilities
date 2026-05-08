@@ -34,6 +34,14 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--balanced-labels",
+        action="store_true",
+        help=(
+            "Generate a balanced label dataset by using only supervision pairs and their reverse negatives. "
+            "This sets the effective negative ratio to 0.0 and removes unrelated both-negative pairs."
+        ),
+    )
+    parser.add_argument(
         "--validation-fraction",
         type=float,
         default=0.2,
@@ -212,7 +220,7 @@ def build_pair_records(
     pair_records = positive_pair_records + sampled_negatives
     if not positive_pair_records:
         raise ValueError("No positive supervision edges were generated.")
-    if not sampled_negatives:
+    if negative_ratio > 0.0 and not sampled_negatives:
         raise ValueError("No negative unrelated pairs were sampled.")
     rng.shuffle(pair_records)
     return pair_records
@@ -399,6 +407,19 @@ def validate_dataset(atom_rows: list[dict[str, object]]) -> dict[str, object]:
         if row["split"] == "test"
     }
 
+    base_valid = (
+        required_columns <= actual_columns
+        and not (forbidden_feature_columns & actual_columns)
+        and len(missing_reverse_examples) == 0
+        and len(both_positive_examples) == 0
+        and positive_reverse_negative_count > 0
+        and split_counts.get("train", 0) > 0
+        and split_counts.get("test", 0) > 0
+        and train_labels == {0, 1}
+        and test_labels == {0, 1}
+    )
+    is_balanced = label_counts.get("0", 0) == label_counts.get("1", 0)
+
     return {
         "has_required_columns": required_columns <= actual_columns,
         "forbidden_feature_columns_present": sorted(forbidden_feature_columns & actual_columns),
@@ -416,18 +437,10 @@ def validate_dataset(atom_rows: list[dict[str, object]]) -> dict[str, object]:
             if label_counts
             else 0.0
         ),
-        "is_valid_sparse_supervised_by": (
-            required_columns <= actual_columns
-            and not (forbidden_feature_columns & actual_columns)
-            and len(missing_reverse_examples) == 0
-            and len(both_positive_examples) == 0
-            and positive_reverse_negative_count > 0
-            and both_negative_pair_count > 0
-            and split_counts.get("train", 0) > 0
-            and split_counts.get("test", 0) > 0
-            and train_labels == {0, 1}
-            and test_labels == {0, 1}
-        ),
+        "is_balanced_label_dataset": is_balanced,
+        "is_valid_supervised_by": base_valid,
+        "is_valid_sparse_supervised_by": base_valid and both_negative_pair_count > 0,
+        "is_valid_balanced_supervised_by": base_valid and is_balanced and both_negative_pair_count == 0,
     }
 
 
@@ -464,7 +477,10 @@ def build_report(metadata: dict[str, object]) -> str:
         lines.append(f"- `{split}`: `{count}`")
 
     lines.extend(["", "## Validation", ""])
+    lines.append(f"- supervised_by dataset valid: `{validation['is_valid_supervised_by']}`")
     lines.append(f"- sparse supervised_by dataset valid: `{validation['is_valid_sparse_supervised_by']}`")
+    lines.append(f"- balanced supervised_by dataset valid: `{validation['is_valid_balanced_supervised_by']}`")
+    lines.append(f"- balanced label counts: `{validation['is_balanced_label_dataset']}`")
     lines.append(f"- both-positive antisymmetry violations: `{validation['both_positive_violation_count']}`")
     lines.append(f"- positive rows whose reverse is negative: `{validation['positive_reverse_negative_count']}`")
     lines.append(f"- both-negative unordered pairs: `{validation['both_negative_unordered_pair_count']}`")
@@ -474,6 +490,7 @@ def build_report(metadata: dict[str, object]) -> str:
 def main() -> None:
     args = parse_args()
     rng = random.Random(args.seed)
+    effective_negative_ratio = 0.0 if args.balanced_labels else args.negative_ratio
     entities = build_entities(
         num_students=args.num_students,
         num_supervisors=args.num_supervisors,
@@ -488,7 +505,7 @@ def main() -> None:
     pair_records = build_pair_records(
         entities=entities,
         positive_edges=positive_edges,
-        negative_ratio=args.negative_ratio,
+        negative_ratio=effective_negative_ratio,
         rng=rng,
     )
     atom_rows, pair_rows = assign_supervision_split(
@@ -516,6 +533,8 @@ def main() -> None:
         "min_supervisors_per_student": args.min_supervisors_per_student,
         "max_supervisors_per_student": args.max_supervisors_per_student,
         "negative_ratio": args.negative_ratio,
+        "effective_negative_ratio": effective_negative_ratio,
+        "balanced_labels": args.balanced_labels,
         "validation_fraction": args.validation_fraction,
         "split_mode": args.split_mode,
         "demo_fraction": args.demo_fraction,
@@ -524,8 +543,10 @@ def main() -> None:
         "entity_ids_randomized": True,
         "generation_rule": (
             "Students are assigned one or more hidden supervisors. label=1 means entity_1 is supervised by "
-            "entity_2. Reverse supervision rows are 0. Unrelated pairs are 0 in both directions. Roles are "
-            "written only to audit files and never to the model-facing atom table."
+            "entity_2. Reverse supervision rows are 0. Unrelated pairs are 0 in both directions when sampled. "
+            "In balanced mode, unrelated pairs are omitted so each supervision pair contributes one positive "
+            "and one negative reverse row. Roles are written only to audit files and never to the model-facing "
+            "atom table."
         ),
         "split_rule": (
             "reverse_holdout: one direction is train and the reverse direction is validation/test. "
@@ -584,10 +605,12 @@ def main() -> None:
     write_json(output_dir / "metadata.json", metadata)
     (output_dir / "validation_report.md").write_text(build_report(metadata), encoding="utf-8")
 
-    if not validation["is_valid_sparse_supervised_by"]:
+    validity_key = "is_valid_balanced_supervised_by" if args.balanced_labels else "is_valid_sparse_supervised_by"
+    if not validation[validity_key]:
         raise RuntimeError(f"Generated dataset failed validation. See {output_dir / 'metadata.json'}")
 
-    print(f"Wrote sparse supervised_by dataset to {output_dir}")
+    dataset_kind = "balanced" if args.balanced_labels else "sparse"
+    print(f"Wrote {dataset_kind} supervised_by dataset to {output_dir}")
     print(
         "entities={entities} supervision_edges={edges} unrelated_pairs={unrelated} rows={rows} "
         "train={train} validation={validation} test={test}".format(
