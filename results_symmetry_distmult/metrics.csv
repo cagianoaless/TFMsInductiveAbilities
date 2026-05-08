@@ -1,2 +1,0 @@
-model,threshold,fit_time_s,predict_time_s,accuracy,f1,precision,recall,positive_rate_true,positive_rate_pred,average_precision,roc_auc
-distmult,0.5,0.5161283202469349,0.00020119361579418182,1.0,1.0,1.0,1.0,0.4895833333333333,0.4895833333333333,1.0,1.0
