@@ -1,0 +1,26 @@
+{
+  "batch_size": 512,
+  "created_utc": "2026-05-08T13:36:07.607617+00:00",
+  "data_path": "/data/alessandrocagiano-data/on_inductive_abilities_tfm/experiment_2/TFMsInductiveAbilities/sparse_supervised_by_dataset_balanced/supervised_by_atoms.csv",
+  "decision_threshold": 0.5,
+  "device": "cuda",
+  "distance": "l2",
+  "embedding_dim": 64,
+  "entities": 60,
+  "epochs": 1000,
+  "lr": 0.01,
+  "models": [
+    "complex",
+    "transr",
+    "transe",
+    "distmult"
+  ],
+  "patience": 100,
+  "relation_dim": 64,
+  "seed": 20260429,
+  "test_rows": 27,
+  "threshold_mode": "fixed",
+  "train_rows": 102,
+  "validation_rows": 7,
+  "weight_decay": 0.0001
+}
