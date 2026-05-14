@@ -196,7 +196,9 @@ def choose_demo_indices(
         if len(indices) < 2:
             continue
         demo_count = int(round(len(indices) * demo_fraction))
-        demo_count = min(max(demo_count, 1), len(indices) - 1)
+        if demo_count == 0:
+            continue
+        demo_count = min(demo_count, len(indices) - 1)
         demo_indices.update(rng.sample(indices, demo_count))
     return demo_indices
 
