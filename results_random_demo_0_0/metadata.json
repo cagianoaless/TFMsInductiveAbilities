@@ -1,0 +1,13 @@
+{
+  "created_utc": "2026-05-14T18:55:02.953283+00:00",
+  "data_path": "/data/alessandrocagiano-data/on_inductive_abilities_tfm/experiment_2/TFMsInductiveAbilities/symmetry_demo_fraction_datasets/random_demo_0.0/symmetry_friendship_atoms.csv",
+  "device": "cuda",
+  "models": [
+    "tabpfn",
+    "tabicl"
+  ],
+  "test_rows": 7200,
+  "threshold_mode": "fixed",
+  "train_rows": 9000,
+  "validation_rows": 1800
+}
