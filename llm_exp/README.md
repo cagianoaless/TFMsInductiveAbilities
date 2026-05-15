@@ -43,9 +43,10 @@ The first mode uses your local Ollama installation as a proxy. Sign in once:
 ollama signin
 ```
 
-Then use a cloud model through the normal local endpoint:
+Then pull and use a cloud model through the normal local endpoint:
 
 ```bash
+ollama pull gpt-oss:120b-cloud
 MODEL=gpt-oss:120b-cloud bash llm_exp/run_all_ollama_symmetry.sh
 ```
 
@@ -57,13 +58,24 @@ export OLLAMA_API_KEY=your_api_key
 BACKEND=cloud MODEL=gpt-oss:120b bash llm_exp/run_all_ollama_symmetry.sh
 ```
 
-In direct cloud mode the script adds:
+In direct cloud mode the script calls `https://ollama.com/api/chat` and adds:
 
 ```text
 Authorization: Bearer $OLLAMA_API_KEY
 ```
 
 Do not commit API keys.
+
+By default the runner uses `/api/chat`. If you explicitly want the older
+prompt-completion endpoint for a local model, set:
+
+```bash
+ENDPOINT=generate bash llm_exp/run_all_ollama_symmetry.sh
+```
+
+The runner also avoids `format=json` automatically for cloud models because
+Ollama Cloud may not support structured outputs. The prompt still asks the
+model to return JSON, and the parser extracts JSON from the text response.
 
 ## Run One Dataset
 

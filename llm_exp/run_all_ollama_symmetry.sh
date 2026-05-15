@@ -6,6 +6,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 MODEL="${MODEL:-glm-4.7-flash:latest}"
 BACKEND="${BACKEND:-local}"
+ENDPOINT="${ENDPOINT:-chat}"
+STRUCTURED_OUTPUT="${STRUCTURED_OUTPUT:-auto}"
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 OLLAMA_API_KEY_ENV="${OLLAMA_API_KEY_ENV:-OLLAMA_API_KEY}"
 NUM_RUNS="${NUM_RUNS:-20}"
@@ -30,6 +32,8 @@ for dataset in "${DATASETS[@]}"; do
     --output-dir "$SCRIPT_DIR/results/$dataset" \
     --model "$MODEL" \
     --backend "$BACKEND" \
+    --endpoint "$ENDPOINT" \
+    --structured-output "$STRUCTURED_OUTPUT" \
     --ollama-url "$OLLAMA_URL" \
     --ollama-api-key-env "$OLLAMA_API_KEY_ENV" \
     --seed "$SEED" \

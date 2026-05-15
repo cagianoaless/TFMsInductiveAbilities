@@ -10,9 +10,9 @@ keeps the result comparable to the TabPFN runner: fit examples come from
 from __future__ import annotations
 
 import argparse
-import os
 import json
 import math
+import os
 import random
 import re
 import time
@@ -47,6 +47,21 @@ def parse_args() -> argparse.Namespace:
         help=(
             "local uses a local Ollama host, including local proxy access to signed-in cloud models. "
             "cloud calls https://ollama.com directly and requires an API key."
+        ),
+    )
+    parser.add_argument(
+        "--endpoint",
+        choices=["chat", "generate"],
+        default="chat",
+        help="Ollama API endpoint. Ollama Cloud examples use chat; generate is kept for local compatibility.",
+    )
+    parser.add_argument(
+        "--structured-output",
+        choices=["auto", "on", "off"],
+        default="auto",
+        help=(
+            "Whether to send format=json. auto enables it for normal local models and disables it for cloud models, "
+            "because Ollama Cloud may not support structured outputs."
         ),
     )
     parser.add_argument("--ollama-url", type=str, default="http://localhost:11434")
@@ -197,6 +212,14 @@ def build_prompt(
     return "\n".join(lines)
 
 
+def should_use_structured_output(args: argparse.Namespace) -> bool:
+    if args.structured_output == "on":
+        return True
+    if args.structured_output == "off":
+        return False
+    return args.backend == "local" and not args.model.endswith("-cloud")
+
+
 def build_batches(df: pd.DataFrame, args: argparse.Namespace) -> list[PromptBatch]:
     train = df[df[args.split_column] == args.train_split].copy()
     test = df[df[args.split_column] == args.test_split].copy()
@@ -236,17 +259,29 @@ def build_batches(df: pd.DataFrame, args: argparse.Namespace) -> list[PromptBatc
 
 def call_ollama(prompt: str, args: argparse.Namespace) -> tuple[str, float]:
     base_url = "https://ollama.com" if args.backend == "cloud" else args.ollama_url
-    url = base_url.rstrip("/") + "/api/generate"
-    payload = {
-        "model": args.model,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-        "options": {
-            "temperature": args.temperature,
-            "num_predict": args.num_predict,
-        },
-    }
+    url = base_url.rstrip("/") + f"/api/{args.endpoint}"
+    if args.endpoint == "chat":
+        payload = {
+            "model": args.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "options": {
+                "temperature": args.temperature,
+                "num_predict": args.num_predict,
+            },
+        }
+    else:
+        payload = {
+            "model": args.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": args.temperature,
+                "num_predict": args.num_predict,
+            },
+        }
+    if should_use_structured_output(args):
+        payload["format"] = "json"
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if args.backend == "cloud":
@@ -270,10 +305,16 @@ def call_ollama(prompt: str, args: argparse.Namespace) -> tuple[str, float]:
     except urllib.error.URLError as exc:
         raise RuntimeError(
             f"Could not reach Ollama at {url}. "
-            f"For --backend local, check `ollama serve` and model {args.model!r}. "
+            f"For --backend local, check `ollama serve`, `ollama signin` if using a cloud model, "
+            f"and model {args.model!r}. "
             f"For --backend cloud, check ${args.ollama_api_key_env} and cloud model availability."
         ) from exc
     elapsed = time.perf_counter() - start
+    if args.endpoint == "chat":
+        message = response_data.get("message", {})
+        if isinstance(message, dict):
+            return str(message.get("content", "")), elapsed
+        return "", elapsed
     return str(response_data.get("response", "")), elapsed
 
 
