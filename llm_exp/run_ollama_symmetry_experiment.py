@@ -61,9 +61,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--endpoint",
-        choices=["chat", "generate"],
-        default="chat",
-        help="Ollama API endpoint. Ollama Cloud examples use chat; generate is kept for local compatibility.",
+        choices=["auto", "chat", "generate"],
+        default="auto",
+        help="Ollama API endpoint. auto uses generate for local models and chat for cloud models.",
     )
     parser.add_argument(
         "--structured-output",
@@ -304,6 +304,14 @@ def should_use_structured_output(args: argparse.Namespace) -> bool:
     return args.backend == "local" and not args.model.endswith("-cloud")
 
 
+def resolve_endpoint(args: argparse.Namespace) -> str:
+    if args.endpoint != "auto":
+        return args.endpoint
+    if args.backend == "cloud" or args.model.endswith("-cloud"):
+        return "chat"
+    return "generate"
+
+
 def build_batches(df: pd.DataFrame, args: argparse.Namespace) -> list[PromptBatch]:
     train = df[df[args.split_column] == args.train_split].copy()
     test = df[df[args.split_column] == args.test_split].copy()
@@ -343,8 +351,9 @@ def build_batches(df: pd.DataFrame, args: argparse.Namespace) -> list[PromptBatc
 
 def call_ollama(prompt: str, args: argparse.Namespace) -> tuple[str, float]:
     base_url = "https://ollama.com" if args.backend == "cloud" else args.ollama_url
-    url = base_url.rstrip("/") + f"/api/{args.endpoint}"
-    if args.endpoint == "chat":
+    endpoint = resolve_endpoint(args)
+    url = base_url.rstrip("/") + f"/api/{endpoint}"
+    if endpoint == "chat":
         payload = {
             "model": args.model,
             "messages": [{"role": "user", "content": prompt}],
@@ -396,7 +405,7 @@ def call_ollama(prompt: str, args: argparse.Namespace) -> tuple[str, float]:
     if isinstance(response_data, dict) and response_data.get("error"):
         raise RuntimeError(f"Ollama returned an error from {url}: {response_data['error']}")
     elapsed = time.perf_counter() - start
-    if args.endpoint == "chat":
+    if endpoint == "chat":
         message = response_data.get("message", {})
         if isinstance(message, dict):
             return str(message.get("content", "")), elapsed
@@ -596,6 +605,7 @@ def run_experiment(args: argparse.Namespace) -> None:
     config["output_dir"] = str(args.output_dir)
     config["effective_prompt_template"] = effective_prompt_template(args)
     config["prompt_template_description"] = PROMPT_TEMPLATES[effective_prompt_template(args)]
+    config["resolved_endpoint"] = resolve_endpoint(args)
     (args.output_dir / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
 
     if args.dry_run:
@@ -698,6 +708,9 @@ def run_experiment(args: argparse.Namespace) -> None:
                 f"valid={run_metrics['valid_predictions']}/{run_metrics['expected_predictions']} "
                 f"elapsed_s={elapsed_s:.2f}"
             )
+            if len(run_true) == 0 and parse_error is not None:
+                print(f"  parse_error={parse_error[:240]}")
+                print(f"  response_snippet={response_text[:240].replace(chr(10), ' ')}")
     finally:
         if raw_handle is not None:
             raw_handle.close()

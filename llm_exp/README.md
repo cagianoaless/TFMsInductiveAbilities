@@ -66,11 +66,21 @@ Authorization: Bearer $OLLAMA_API_KEY
 
 Do not commit API keys.
 
-By default the runner uses `/api/chat`. If you explicitly want the older
-prompt-completion endpoint for a local model, set:
+By default the runner uses `ENDPOINT=auto`:
+
+- local normal models, such as `qwen3:8b`, use `/api/generate`;
+- direct cloud models and local `*-cloud` models use `/api/chat`.
+
+If you explicitly want the prompt-completion endpoint, set:
 
 ```bash
 ENDPOINT=generate bash llm_exp/run_all_ollama_symmetry.sh
+```
+
+If you explicitly want the chat endpoint, set:
+
+```bash
+ENDPOINT=chat bash llm_exp/run_all_ollama_symmetry.sh
 ```
 
 The runner also avoids `format=json` automatically for cloud models because
