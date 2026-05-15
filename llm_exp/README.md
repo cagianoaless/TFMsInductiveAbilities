@@ -105,6 +105,44 @@ You can override defaults without editing the script:
 MODEL=glm-4.7-flash:latest NUM_RUNS=50 ICL_SIZE=96 TEST_SIZE_PER_RUN=64 bash llm_exp/run_all_ollama_symmetry.sh
 ```
 
+## Test Different Prompts
+
+Available prompt templates are:
+
+```text
+neutral
+rule_induction
+balanced_rule_induction
+reverse_pair_probe
+explicit_symmetry
+```
+
+The most scientific baseline is `neutral`, because it does not reveal the rule.
+`explicit_symmetry` is an upper-bound sanity check, not a fair rule-inference
+test.
+
+Run one prompt across all datasets:
+
+```bash
+PROMPT_TEMPLATE=balanced_rule_induction MODEL=qwen3:8b bash llm_exp/run_all_ollama_symmetry.sh
+```
+
+Run the full prompt sweep:
+
+```bash
+MODEL=qwen3:8b bash llm_exp/run_prompt_sweep.sh
+```
+
+This writes:
+
+```text
+llm_exp/prompt_sweep/qwen3_8b_prompt_comparison.csv
+llm_exp/prompt_sweep/qwen3_8b_prompt_comparison_by_prompt.csv
+```
+
+The first file compares every `(dataset, prompt)` pair. The second averages
+metrics by prompt and sorts prompts by mean accuracy and F1.
+
 Direct Ollama Cloud example:
 
 ```bash
