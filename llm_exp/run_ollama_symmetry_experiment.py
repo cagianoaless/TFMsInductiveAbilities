@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--data-path", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--model", type=str, default="glm-4.7-flash:latest")
+    parser.add_argument("--model", type=str, default="qwen3:8b")
     parser.add_argument(
         "--backend",
         choices=["local", "cloud"],
@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--endpoint",
         choices=["chat", "generate"],
-        default="chat",
+        default="generate",
         help="Ollama API endpoint. Ollama Cloud examples use chat; generate is kept for local compatibility.",
     )
     parser.add_argument(

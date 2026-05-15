@@ -4,12 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-MODEL="${MODEL:-glm-4.7-flash:latest}"
-BACKEND="${BACKEND:-local}"
-ENDPOINT="${ENDPOINT:-chat}"
-STRUCTURED_OUTPUT="${STRUCTURED_OUTPUT:-auto}"
+MODEL="${MODEL:-qwen3:8b}"
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
-OLLAMA_API_KEY_ENV="${OLLAMA_API_KEY_ENV:-OLLAMA_API_KEY}"
 NUM_RUNS="${NUM_RUNS:-20}"
 ICL_SIZE="${ICL_SIZE:-64}"
 TEST_SIZE_PER_RUN="${TEST_SIZE_PER_RUN:-64}"
@@ -31,11 +27,7 @@ for dataset in "${DATASETS[@]}"; do
     --data-path "$REPO_ROOT/symmetry_demo_fraction_datasets/$dataset/symmetry_friendship_atoms.csv" \
     --output-dir "$SCRIPT_DIR/results/$dataset" \
     --model "$MODEL" \
-    --backend "$BACKEND" \
-    --endpoint "$ENDPOINT" \
-    --structured-output "$STRUCTURED_OUTPUT" \
     --ollama-url "$OLLAMA_URL" \
-    --ollama-api-key-env "$OLLAMA_API_KEY_ENV" \
     --seed "$SEED" \
     --num-runs "$NUM_RUNS" \
     --icl-size "$ICL_SIZE" \

@@ -1,0 +1,2 @@
+n,accuracy,f1,precision,recall,true_positive_rate,predicted_positive_rate,tp,tn,fp,fn,model,data_path,num_runs,icl_size,test_size_per_run,total_expected_predictions,total_valid_predictions,valid_prediction_rate,mean_batch_elapsed_s,sampling,reveal_symmetry
+40,0.45,0.42105263157894735,0.42105263157894735,0.42105263157894735,0.475,0.475,8,10,11,11,qwen3:0.6b,../symmetry_demo_fraction_datasets/random_demo_0.0/symmetry_friendship_atoms.csv,20,64,64,1280,40,0.03125,0.46192455948330463,balanced,False
