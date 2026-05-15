@@ -10,6 +10,7 @@ keeps the result comparable to the TabPFN runner: fit examples come from
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import math
 import os
@@ -125,6 +126,19 @@ def parse_args() -> argparse.Namespace:
         "--save-prompts",
         action="store_true",
         help="Save full prompts and raw responses to raw_responses.jsonl.",
+    )
+    parser.add_argument(
+        "--save-invalid-responses",
+        dest="save_invalid_responses",
+        action="store_true",
+        default=True,
+        help="Save batches with invalid or partial predictions to invalid_responses.jsonl.",
+    )
+    parser.add_argument(
+        "--no-save-invalid-responses",
+        dest="save_invalid_responses",
+        action="store_false",
+        help="Disable invalid response debug logging.",
     )
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
@@ -379,12 +393,14 @@ def call_ollama(prompt: str, args: argparse.Namespace) -> tuple[str, float]:
             f"and model {args.model!r}. "
             f"For --backend cloud, check ${args.ollama_api_key_env} and cloud model availability."
         ) from exc
+    if isinstance(response_data, dict) and response_data.get("error"):
+        raise RuntimeError(f"Ollama returned an error from {url}: {response_data['error']}")
     elapsed = time.perf_counter() - start
     if args.endpoint == "chat":
         message = response_data.get("message", {})
         if isinstance(message, dict):
             return str(message.get("content", "")), elapsed
-        return "", elapsed
+        return json.dumps(response_data), elapsed
     return str(response_data.get("response", "")), elapsed
 
 
@@ -395,38 +411,133 @@ def extract_json_object(text: str) -> Any:
     except json.JSONDecodeError:
         pass
 
-    object_match = re.search(r"\{.*\}", stripped, flags=re.DOTALL)
-    if object_match:
-        return json.loads(object_match.group(0))
-    array_match = re.search(r"\[.*\]", stripped, flags=re.DOTALL)
-    if array_match:
-        return json.loads(array_match.group(0))
+    decoder = json.JSONDecoder()
+    parse_errors: list[str] = []
+    for start, char in enumerate(stripped):
+        if char not in "[{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(stripped[start:])
+            return parsed
+        except json.JSONDecodeError as exc:
+            parse_errors.append(str(exc))
+
+    fenced_blocks = re.findall(r"```(?:json)?\s*(.*?)```", stripped, flags=re.DOTALL | re.IGNORECASE)
+    for block in fenced_blocks:
+        try:
+            return json.loads(block.strip())
+        except json.JSONDecodeError as exc:
+            parse_errors.append(str(exc))
+
+    for match in re.finditer(r"(\{.*?\}|\[.*?\])", stripped, flags=re.DOTALL):
+        candidate = match.group(1)
+        try:
+            return ast.literal_eval(candidate)
+        except (SyntaxError, ValueError) as exc:
+            parse_errors.append(str(exc))
+
+    if parse_errors:
+        raise ValueError(f"No parseable JSON object or array found. Last error: {parse_errors[-1]}")
     raise ValueError("No JSON object or array found in model response.")
 
 
-def parse_predictions(response_text: str, expected_count: int) -> tuple[dict[int, int], str | None]:
-    try:
-        parsed = extract_json_object(response_text)
-        if isinstance(parsed, dict):
-            items = parsed.get("predictions", parsed.get("labels", parsed.get("outputs")))
-        else:
-            items = parsed
-        if not isinstance(items, list):
-            raise ValueError("JSON does not contain a predictions list.")
+def parse_query_id(value: Any, fallback: int) -> int:
+    if value is None:
+        return fallback
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    match = re.search(r"\d+", str(value))
+    if match:
+        return int(match.group(0))
+    return fallback
 
-        predictions: dict[int, int] = {}
-        for position, item in enumerate(items):
-            if isinstance(item, dict):
-                query_id = int(item.get("id", position))
-                label = normalize_label(item.get("label", item.get("prediction")))
+
+def parse_prediction_item(item: Any, position: int) -> tuple[int, int]:
+    if isinstance(item, dict):
+        query_id = parse_query_id(item.get("id", item.get("query_id")), position)
+        label_value = item.get("label", item.get("prediction", item.get("predicted_label")))
+        return query_id, normalize_label(label_value)
+    return position, normalize_label(item)
+
+
+def predictions_from_parsed(parsed: Any, expected_count: int) -> tuple[dict[int, int], list[str]]:
+    predictions: dict[int, int] = {}
+    errors: list[str] = []
+
+    if isinstance(parsed, dict):
+        items = parsed.get("predictions", parsed.get("labels", parsed.get("outputs")))
+        if items is None:
+            numeric_keys = [key for key in parsed if re.fullmatch(r"\d+", str(key))]
+            if numeric_keys:
+                items = [{"id": key, "label": parsed[key]} for key in numeric_keys]
             else:
-                query_id = position
-                label = normalize_label(item)
+                raise ValueError("JSON object does not contain predictions, labels, outputs, or numeric id keys.")
+    else:
+        items = parsed
+
+    if isinstance(items, dict):
+        items = [{"id": key, "label": value} for key, value in items.items()]
+    if not isinstance(items, list):
+        raise ValueError("Predictions payload is not a list or id-to-label dictionary.")
+
+    for position, item in enumerate(items):
+        try:
+            query_id, label = parse_prediction_item(item, position)
+        except Exception as exc:  # noqa: BLE001 - keep item-level diagnostics
+            errors.append(f"item {position}: {exc}")
+            continue
+        if 0 <= query_id < expected_count:
+            predictions[query_id] = label
+        else:
+            errors.append(f"item {position}: query id {query_id} outside [0, {expected_count})")
+    return predictions, errors
+
+
+def parse_line_predictions(response_text: str, expected_count: int) -> dict[int, int]:
+    predictions: dict[int, int] = {}
+    patterns = [
+        re.compile(
+            r"\b(?:id|query_id)\s*[:=]\s*['\"]?(\d+)['\"]?.{0,80}?\b(?:label|prediction|predicted_label)\s*[:=]\s*['\"]?([01])['\"]?",
+            flags=re.IGNORECASE,
+        ),
+        re.compile(
+            r"^\s*(?:id\s*)?(\d+)\s*[:=,-]\s*(?:label|prediction)?\s*[:=]?\s*([01])\b",
+            flags=re.IGNORECASE,
+        ),
+    ]
+    for line in response_text.splitlines():
+        for pattern in patterns:
+            match = pattern.search(line)
+            if not match:
+                continue
+            query_id = int(match.group(1))
+            label = int(match.group(2))
             if 0 <= query_id < expected_count:
                 predictions[query_id] = label
-        return predictions, None
+            break
+    return predictions
+
+
+def parse_predictions(response_text: str, expected_count: int) -> tuple[dict[int, int], str | None]:
+    errors: list[str] = []
+    try:
+        parsed = extract_json_object(response_text)
+        predictions, item_errors = predictions_from_parsed(parsed, expected_count)
+        errors.extend(item_errors)
+        if predictions:
+            if len(predictions) == expected_count and not errors:
+                return predictions, None
+            return predictions, "; ".join(errors) if errors else f"partial predictions: {len(predictions)}/{expected_count}"
     except Exception as exc:  # noqa: BLE001 - stored for auditability
-        return {}, str(exc)
+        errors.append(str(exc))
+
+    line_predictions = parse_line_predictions(response_text, expected_count)
+    if line_predictions:
+        errors.append("used line-based fallback parser")
+        return line_predictions, "; ".join(errors)
+    return {}, "; ".join(errors)
 
 
 def compute_metrics(y_true: list[int], y_pred: list[int]) -> dict[str, float | int]:
@@ -498,6 +609,10 @@ def run_experiment(args: argparse.Namespace) -> None:
     run_metric_rows: list[dict[str, Any]] = []
     raw_path = args.output_dir / "raw_responses.jsonl"
     raw_handle = raw_path.open("w", encoding="utf-8") if args.save_prompts else None
+    invalid_path = args.output_dir / "invalid_responses.jsonl"
+    invalid_handle = (
+        invalid_path.open("w", encoding="utf-8") if args.save_invalid_responses else None
+    )
     try:
         for batch in batches:
             response_text, elapsed_s = call_ollama(batch.prompt, args)
@@ -541,9 +656,28 @@ def run_experiment(args: argparse.Namespace) -> None:
                     "valid_prediction_rate": len(run_true) / len(batch.test_indices),
                     "elapsed_s": elapsed_s,
                     "parse_error": parse_error,
+                    "response_snippet": response_text[:500],
                 }
             )
             run_metric_rows.append(run_metrics)
+
+            if (
+                invalid_handle is not None
+                and (parse_error is not None or len(run_true) != len(batch.test_indices))
+            ):
+                invalid_handle.write(
+                    json.dumps(
+                        {
+                            "run_idx": batch.run_idx,
+                            "valid_predictions": len(run_true),
+                            "expected_predictions": len(batch.test_indices),
+                            "parse_error": parse_error,
+                            "response": response_text,
+                            "prompt": batch.prompt if args.save_prompts else None,
+                        }
+                    )
+                    + "\n"
+                )
 
             if raw_handle is not None:
                 raw_handle.write(
@@ -567,6 +701,8 @@ def run_experiment(args: argparse.Namespace) -> None:
     finally:
         if raw_handle is not None:
             raw_handle.close()
+        if invalid_handle is not None:
+            invalid_handle.close()
 
     predictions_df = pd.DataFrame(prediction_rows)
     per_run_df = pd.DataFrame(run_metric_rows)

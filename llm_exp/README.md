@@ -143,6 +143,21 @@ llm_exp/prompt_sweep/qwen3_8b_prompt_comparison_by_prompt.csv
 The first file compares every `(dataset, prompt)` pair. The second averages
 metrics by prompt and sorts prompts by mean accuracy and F1.
 
+## Debug Invalid Outputs
+
+If a run prints `accuracy=nan valid=0/64`, the Ollama call succeeded but the
+model response could not be converted into labels. The runner now writes:
+
+```text
+invalid_responses.jsonl
+```
+
+inside the output directory whenever parsing fails or is partial. Inspect that
+file to see the raw model response and parser error.
+
+The parser accepts normal JSON, fenced JSON, id-to-label dictionaries, string
+ids such as `"id=0"`, and simple line outputs such as `id=0 label=1`.
+
 Direct Ollama Cloud example:
 
 ```bash
