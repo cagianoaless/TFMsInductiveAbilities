@@ -10,6 +10,7 @@ keeps the result comparable to the TabPFN runner: fit examples come from
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import math
 import random
@@ -39,7 +40,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-path", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--model", type=str, default="glm-4.7-flash:latest")
+    parser.add_argument(
+        "--backend",
+        choices=["local", "cloud"],
+        default="local",
+        help=(
+            "local uses a local Ollama host, including local proxy access to signed-in cloud models. "
+            "cloud calls https://ollama.com directly and requires an API key."
+        ),
+    )
     parser.add_argument("--ollama-url", type=str, default="http://localhost:11434")
+    parser.add_argument(
+        "--ollama-api-key-env",
+        type=str,
+        default="OLLAMA_API_KEY",
+        help="Environment variable containing the Ollama Cloud API key when --backend cloud is used.",
+    )
     parser.add_argument("--seed", type=int, default=20260514)
     parser.add_argument("--num-runs", type=int, default=20)
     parser.add_argument("--icl-size", type=int, default=64)
@@ -219,7 +235,8 @@ def build_batches(df: pd.DataFrame, args: argparse.Namespace) -> list[PromptBatc
 
 
 def call_ollama(prompt: str, args: argparse.Namespace) -> tuple[str, float]:
-    url = args.ollama_url.rstrip("/") + "/api/generate"
+    base_url = "https://ollama.com" if args.backend == "cloud" else args.ollama_url
+    url = base_url.rstrip("/") + "/api/generate"
     payload = {
         "model": args.model,
         "prompt": prompt,
@@ -231,10 +248,19 @@ def call_ollama(prompt: str, args: argparse.Namespace) -> tuple[str, float]:
         },
     }
     data = json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if args.backend == "cloud":
+        api_key = os.environ.get(args.ollama_api_key_env)
+        if not api_key:
+            raise RuntimeError(
+                f"--backend cloud requires ${args.ollama_api_key_env}. "
+                "Create an Ollama API key and export it before running the experiment."
+            )
+        headers["Authorization"] = f"Bearer {api_key}"
     request = urllib.request.Request(
         url,
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
     start = time.perf_counter()
@@ -243,7 +269,9 @@ def call_ollama(prompt: str, args: argparse.Namespace) -> tuple[str, float]:
             response_data = json.loads(response.read().decode("utf-8"))
     except urllib.error.URLError as exc:
         raise RuntimeError(
-            f"Could not reach Ollama at {url}. Is `ollama serve` running and is model {args.model!r} available?"
+            f"Could not reach Ollama at {url}. "
+            f"For --backend local, check `ollama serve` and model {args.model!r}. "
+            f"For --backend cloud, check ${args.ollama_api_key_env} and cloud model availability."
         ) from exc
     elapsed = time.perf_counter() - start
     return str(response_data.get("response", "")), elapsed
