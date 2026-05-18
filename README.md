@@ -18,7 +18,8 @@ No dataset or result folder has been removed. Existing root-level dataset and re
 | --- | --- |
 | Main repo map | `docs/REPO_MAP.md` |
 | Original minimal-symmetry README | `docs/legacy_minimal_symmetry_readme.md` |
-| Academic/code reports | `experiments_report.md`, `code_study_guide.md`, `NOTES.md` |
+| Current research notes | `current_research/NOTES.md`, `current_research/NOTES.pdf` |
+| Academic/code reports | `docs/reports/experiments_report.md`, `docs/reports/code_study_guide.md` |
 | Dataset generators | `generate_*.py` |
 | TFM/DistMult runner | `run_minimal_symmetry_tfm_experiment.py` |
 | KGE runner | `run_kge_relation_baselines.py` |

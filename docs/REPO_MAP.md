@@ -7,12 +7,12 @@ This file is the navigation layer for the experiment repository. It documents th
 | Path | Purpose |
 | --- | --- |
 | `README.md` | High-level entry point and most common commands. |
-| `NOTES.md` | Long-form working notes and recovered experiment history. |
-| `experiments_report.md` | Academic-style report of the main experiments and interpretations. |
-| `code_study_guide.md` | Code-oriented explanation of the generators and runners. |
+| `current_research/NOTES.md` | Long-form working notes and recovered experiment history. |
+| `docs/reports/experiments_report.md` | Academic-style report of the main experiments and interpretations. |
+| `docs/reports/code_study_guide.md` | Code-oriented explanation of the generators and runners. |
 | `run_minimal_symmetry_tfm_experiment_walkthrough.md` | Detailed walkthrough of the TFM runner and dataset logic. |
 
-PDF files are exported copies of the corresponding Markdown reports.
+PDF files are exported copies of the corresponding Markdown reports and notes.
 
 ## Dataset Generators
 
@@ -80,9 +80,10 @@ LLM result folders can also contain `per_run_metrics.csv`, `raw_responses.jsonl`
 
 1. `README.md`
 2. `docs/REPO_MAP.md`
-3. `experiments_report.md`
-4. `code_study_guide.md`
+3. `docs/reports/experiments_report.md`
+4. `docs/reports/code_study_guide.md`
 5. `run_minimal_symmetry_tfm_experiment_walkthrough.md`
+6. `current_research/NOTES.md`
 
 Use `tools/repo_inventory.py` when the repo grows again:
 

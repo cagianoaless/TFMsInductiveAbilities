@@ -17,7 +17,7 @@ def classify_dir(path: Path) -> str:
     name = path.name
     if name == "results" or name.startswith("results_"):
         return "result"
-    if name in {"llm_exp", "docs", "tools"}:
+    if name in {"llm_exp", "docs", "tools", "current_research"}:
         return "support"
     if name.endswith("_dataset") or "dataset" in name or name == "symmetry_demo_fraction_datasets":
         return "dataset"
