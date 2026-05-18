@@ -48,5 +48,5 @@ done
 
 python3 "$SCRIPT_DIR/summarize_ollama_vs_tabpfn.py" \
   --llm-results-root "$SCRIPT_DIR/results" \
-  --tabpfn-results-root "$REPO_ROOT/tfm_results_tabpfn" \
+  --tabpfn-results-root "$REPO_ROOT/results/symmetry/demo_fraction" \
   --output-csv "$SCRIPT_DIR/ollama_vs_tabpfn_summary.csv"

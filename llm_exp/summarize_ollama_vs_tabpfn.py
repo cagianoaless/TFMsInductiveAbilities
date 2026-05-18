@@ -12,7 +12,11 @@ import pandas as pd
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build an LLM-vs-TabPFN summary table.")
     parser.add_argument("--llm-results-root", type=Path, default=Path("llm_exp/results"))
-    parser.add_argument("--tabpfn-results-root", type=Path, default=Path("tfm_results_tabpfn"))
+    parser.add_argument(
+        "--tabpfn-results-root",
+        type=Path,
+        default=Path("results/symmetry/demo_fraction"),
+    )
     parser.add_argument(
         "--output-csv",
         type=Path,
@@ -21,14 +25,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def normalize_dataset_name(name: str) -> str:
+    for suffix in ("_tfms", "_kge"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+
 def read_metrics(root: Path, prefix: str) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
-    for metrics_path in sorted(root.glob("*/metrics.csv")):
+    for metrics_path in sorted(root.glob("**/metrics.csv")):
         frame = pd.read_csv(metrics_path)
         if len(frame) == 0:
             continue
+        if prefix == "tabpfn" and "model" in frame.columns:
+            tabpfn_rows = frame[frame["model"].astype(str).str.lower() == "tabpfn"]
+            if len(tabpfn_rows):
+                frame = tabpfn_rows
         row = frame.iloc[0].to_dict()
-        row["dataset"] = metrics_path.parent.name
+        row["dataset"] = normalize_dataset_name(metrics_path.parent.name)
         row["metrics_path"] = str(metrics_path)
         rows.append(row)
     if not rows:

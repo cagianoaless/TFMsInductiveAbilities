@@ -60,9 +60,8 @@ Some sparse graph datasets also contain `positive_edges.csv` or `positive_superv
 
 | Folder pattern | Meaning |
 | --- | --- |
-| `results_*_tfms/` | TabPFN/TabICL outputs. |
-| `results_*_kge/` | KGE baseline outputs. |
-| `results_random_demo_*`, `results_sequential_demo_*` | Focused TabPFN symmetry demo-fraction outputs. |
+| `results/symmetry/` | Symmetry TFM/KGE outputs. |
+| `results/antisymmetry/` | Total-order and `supervised_by` antisymmetry TFM/KGE outputs. |
 | `llm_exp/results/` | Ollama LLM outputs for one prompt configuration. |
 | `llm_exp/prompt_sweep/` | Ollama prompt comparison outputs. |
 
@@ -90,3 +89,5 @@ Use `tools/repo_inventory.py` when the repo grows again:
 ```bash
 python3 tools/repo_inventory.py
 ```
+
+The old root-level `results_*` folders were moved under `results/` without deleting files. See `results/README.md` for the exact mapping.

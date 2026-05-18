@@ -177,7 +177,7 @@ BACKEND=cloud MODEL=gpt-oss:120b NUM_RUNS=50 ICL_SIZE=96 TEST_SIZE_PER_RUN=64 ba
 
 ## Compare With TabPFN
 
-If TabPFN results are in `tfm_results_tabpfn`, the all-run script automatically
+If TabPFN results are in `results/symmetry/demo_fraction`, the all-run script automatically
 creates:
 
 ```text
@@ -189,7 +189,7 @@ You can also run the summarizer manually:
 ```bash
 python3 llm_exp/summarize_ollama_vs_tabpfn.py \
   --llm-results-root llm_exp/results \
-  --tabpfn-results-root tfm_results_tabpfn \
+  --tabpfn-results-root results/symmetry/demo_fraction \
   --output-csv llm_exp/ollama_vs_tabpfn_summary.csv
 ```
 

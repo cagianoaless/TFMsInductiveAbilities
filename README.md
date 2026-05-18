@@ -24,7 +24,7 @@ No dataset or result folder has been removed. Existing root-level dataset and re
 | KGE runner | `run_kge_relation_baselines.py` |
 | LLM/Ollama experiments | `llm_exp/` |
 | Dataset folders | `minimal_*`, `nontransitive_*`, `balanced_*`, `symmetry_demo_fraction_datasets/` |
-| Result folders | `results_*`, `llm_exp/results/`, `llm_exp/prompt_sweep/` |
+| Result folders | `results/`, `llm_exp/results/`, `llm_exp/prompt_sweep/` |
 
 ## Core Data Contract
 
@@ -78,7 +78,7 @@ Run TabPFN on one dataset:
 ```bash
 python3 run_minimal_symmetry_tfm_experiment.py \
   --data-path symmetry_demo_fraction_datasets/random_demo_0.0/symmetry_friendship_atoms.csv \
-  --output-dir results_random_demo_0_0 \
+  --output-dir results/symmetry/demo_fraction/random_demo_0.0_tfms \
   --models tabpfn \
   --device cuda \
   --tabpfn-model-path checkpoints/tabpfn/tabpfn-v3-classifier-20260506.ckpt
@@ -89,7 +89,7 @@ Run KGE baselines:
 ```bash
 python3 run_kge_relation_baselines.py \
   --data-path minimal_antisymmetry_dataset/antisymmetry_coauthor_atoms.csv \
-  --output-dir results_antisymmetry_kge \
+  --output-dir results/antisymmetry/total_order/kge \
   --models complex,transr,transe,distmult \
   --device cuda
 ```
@@ -124,6 +124,8 @@ The most important files for comparison are `metrics.csv` files. Use `tools/repo
 ```bash
 python3 tools/repo_inventory.py
 ```
+
+The curated TFM/KGE result folders are grouped under `results/`. See `results/README.md` for the old-to-new folder mapping.
 
 ## Interpretation Warning
 

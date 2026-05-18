@@ -15,7 +15,7 @@ def count_files(path: Path) -> int:
 
 def classify_dir(path: Path) -> str:
     name = path.name
-    if name.startswith("results_"):
+    if name == "results" or name.startswith("results_"):
         return "result"
     if name in {"llm_exp", "docs", "tools"}:
         return "support"
@@ -33,6 +33,14 @@ def print_section(title: str, rows: list[tuple[str, str]]) -> None:
     width = max(len(name) for name, _ in rows)
     for name, detail in rows:
         print(f"{name:<{width}}  {detail}")
+
+
+def result_leaves(results_root: Path) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    for metrics_path in sorted(results_root.glob("**/metrics.csv")):
+        leaf = metrics_path.parent
+        rows.append((str(leaf.relative_to(ROOT)), f"{count_files(leaf)} files"))
+    return rows
 
 
 def main() -> None:
@@ -53,6 +61,10 @@ def main() -> None:
                 docs.append((path.name, f"{path.stat().st_size} bytes"))
             else:
                 other.append((path.name, f"{path.stat().st_size} bytes"))
+            continue
+
+        if path.name == "results":
+            results.extend(result_leaves(path))
             continue
 
         detail = f"{count_files(path)} files"
